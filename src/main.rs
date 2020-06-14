@@ -4,6 +4,7 @@ use serde_json::Value;
 
 fn main() {
   let schema = Schema::new_record(vec![
+    ("id", Type::new_builtin("uuid")),
     ("temp_high", Type::new_builtin("u7")),
     ("temp_low", Type::new_builtin("u7")),
     ("precipitation_probability", Type::new_builtin("u7")),
@@ -28,7 +29,7 @@ fn main() {
   println!("--- Schema ---\n{}\n", y);
 
   let json_string =
-    std::fs::read_to_string("./weather.json").expect("couldn't read file");
+    std::fs::read_to_string("./samples/weather.json").expect("couldn't read file");
   let json = serde_json::from_str::<Value>(&json_string).expect("failed to parse json");
   println!("json {:3} bytes", json.to_string().bytes().len());
 

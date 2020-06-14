@@ -6,8 +6,8 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 mod enumeration;
 mod numerical;
+mod uuid;
 
-use crate::compress::numerical::IntegerCompressor;
 pub use enumeration::EnumCompressor;
 
 /// Compression result type.
@@ -74,13 +74,17 @@ impl Error for PassThroughError {}
 
 /// Returns the builtin compressor with a given `name`.
 pub fn builtin(name: &str) -> Option<Box<dyn Compressor>> {
+  if name == "uuid" {
+    return Some(Box::new(uuid::UuidCompressor));
+  }
+
   // Fixed width integer values are named via the convention "u<num>" where
   // "<num>" is the bit-width of the encoded integer value.
   if name.starts_with('u') {
     let num = &name[1..];
     if num.chars().all(|c| c.is_ascii_digit()) {
       let width = num.parse::<usize>().expect("failed to parse");
-      return Some(Box::new(IntegerCompressor::new(width)));
+      return Some(Box::new(numerical::IntegerCompressor::new(width)));
     }
   }
 
