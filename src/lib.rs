@@ -17,11 +17,13 @@ extern crate smallvec;
 pub mod co;
 pub mod compress;
 pub mod core;
+pub mod glob;
 pub mod schema;
 pub mod transcode;
 
 /// A collection of commonly used types.
 pub mod prelude {
-  pub use crate::co::{Block, CompressedObject, Glob, Marker};
+  pub use crate::co::{Block, CompressedObject, Marker};
+  pub use crate::glob::Glob;
   pub use crate::schema::{EnumMode, Schema, Type};
 }

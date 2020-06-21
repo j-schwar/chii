@@ -1,7 +1,8 @@
 //! A configurable enumeration compressor.
 
-use super::{Compressor, Glob, Result};
+use super::{Compressor, Result};
 use crate::core::{integer, math};
+use crate::glob::Glob;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};

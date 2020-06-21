@@ -1,40 +1,6 @@
 use super::*;
 
 #[test]
-fn byte_aligned_glob_append() {
-  let mut a = Glob::new(8, vec![1]);
-  let b = Glob::new(8, vec![2]);
-  a.append(b);
-  assert_eq!(Glob::new(16, vec![1, 2]), a);
-}
-
-#[test]
-fn appending_bit_globs() {
-  let mut glob = Glob::new(1, vec![0]);
-  glob.append(Glob::new(1, vec![0]));
-  glob.append(Glob::new(1, vec![0]));
-  glob.append(Glob::new(1, vec![1]));
-  glob.append(Glob::new(1, vec![1]));
-  glob.append(Glob::new(1, vec![0]));
-  assert_eq!(Glob::new(6, vec![0b011000]), glob);
-}
-
-#[test]
-fn appending_variable_width_globs() {
-  let mut glob = Glob::new(3, vec![1]);
-  glob.append(Glob::new(4, vec![0]));
-  glob.append(Glob::new(2, vec![3]));
-  assert_eq!(Glob::new(9, vec![0b1_0000_001, 0b1]), glob);
-}
-
-#[test]
-fn appending_8bit_glob_to_3bit_glob() {
-  let mut glob = Glob::new(3, vec![0b100]);
-  glob.append(Glob::new(8, vec![0x10]));
-  assert_eq!(Glob::new(11, vec![0b10000_100, 0x000]), glob);
-}
-
-#[test]
 fn valid_linear_record() {
   let mut co = CompressedObject::new_record();
   co.push_data(Marker::Field(4), Glob::new(16, vec![1, 2]));
