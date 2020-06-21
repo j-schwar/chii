@@ -4,6 +4,7 @@ use crate::glob::Glob;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
+mod boolean;
 mod enumeration;
 mod numerical;
 mod uuid;
@@ -76,6 +77,10 @@ impl Error for PassThroughError {}
 pub fn builtin(name: &str) -> Option<Box<dyn Compressor>> {
   if name == "uuid" {
     return Some(Box::new(uuid::UuidCompressor));
+  }
+
+  if name == "bool" {
+    return Some(Box::new(boolean::BoolCompressor));
   }
 
   // Fixed width integer values are named via the convention "u<num>" where

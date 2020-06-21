@@ -58,6 +58,8 @@ fn compress_object(
       // Compress the value.
       let glob = if t.is_integer_type() {
         compress_integer_value(value, compressor.as_ref())?
+      } else if t.is_bool_type() {
+        compress_bool_value(value, compressor.as_ref())?
       } else {
         // Assume that the value is a string.
         // TODO: Handle other types of values.
@@ -88,4 +90,33 @@ fn compress_integer_value(
   compressor
     .compress(&value.to_le_bytes())
     .map_err(|e| TranscodeError::CompressionError(e))
+}
+
+/// Compresses a JSON boolean value into a glob.
+fn compress_bool_value(
+  json: &JsonValue,
+  compressor: &dyn Compressor,
+) -> Result<Glob, TranscodeError> {
+  let value = json
+    .as_bool()
+    .ok_or_else(|| TranscodeError::WrongFieldType("expected bool"))?;
+  compressor
+    .compress(&if value { vec![1] } else { vec![0] })
+    .map_err(|e| TranscodeError::CompressionError(e))
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn sanity_test_json_bool() {
+    let s = r#"{"a":true,"b":false}"#;
+    let schema = Schema::new_record(vec![
+      ("a", Type::new_builtin("bool")),
+      ("b", Type::new_builtin("bool")),
+    ]);
+    let json = serde_json::from_str::<JsonValue>(s).expect("invalid json");
+    from_json(&json, &schema).expect("failed to convert to CO");
+  }
 }

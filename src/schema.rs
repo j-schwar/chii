@@ -132,6 +132,14 @@ impl Type {
     }
   }
 
+  /// True if this is a boolean type.
+  pub fn is_bool_type(&self) -> bool {
+    match self {
+      Type::Builtin(name) if name == "bool" => true,
+      _ => false,
+    }
+  }
+
   /// Returns a compressor for this type.
   ///
   /// Returns `None` if unable to construct the required compressor or if the

@@ -1,7 +1,7 @@
 //! This example showcases encoding a simple record object into binary.
 
-use dsc::co::*;
 use dsc::core::math;
+use dsc::prelude::*;
 use std::fmt::{Binary, Formatter, Result as FmtResult};
 
 /// Vector wrapper to allow us to print a vector of bytes as binary.
