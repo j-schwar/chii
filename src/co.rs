@@ -153,6 +153,9 @@ pub enum Block {
   /// the actual data.
   Data(Marker, Length, Glob),
 
+  /// Data with a statically known fixed with.
+  FixedWidthData(Marker, Glob),
+
   /// Terminator blocks mark the end of a nested record or list and are encoded
   /// as a single `Null` marker.
   Terminator,
@@ -175,6 +178,12 @@ impl Block {
       Data(m, l, g) => {
         let mut glob = m.into_glob(marker_width);
         glob.append(l.into_glob());
+        glob.append(g);
+        glob
+      }
+
+      FixedWidthData(m, g) => {
+        let mut glob = m.into_glob(marker_width);
         glob.append(g);
         glob
       }
@@ -432,6 +441,11 @@ impl<'a> Validator<'a> {
           }
         }
 
+        Some(Block::FixedWidthData(..)) => {
+          // TODO: perform proper validation
+          Ok(State::Root(root_marker))
+        }
+
         Some(Block::Header(t, field)) => {
           if root_marker.is_record() && !field.is_field() {
             Err(WrongMarkerType(field, self.index, "expected a field maker"))
@@ -470,6 +484,11 @@ impl<'a> Validator<'a> {
           } else {
             Ok(State::Nested(nested_marker, previous_state))
           }
+        }
+
+        Some(Block::FixedWidthData(..)) => {
+          // TODO: proper validation
+          Ok(State::Nested(nested_marker, previous_state))
         }
 
         Some(Block::Header(t, field)) => {

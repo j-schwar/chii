@@ -63,7 +63,8 @@ fn compress_object(
       } else {
         // Assume that the value is a string.
         // TODO: Handle other types of values.
-        let s = value.as_str()
+        let s = value
+          .as_str()
           .expect(&format!("expected a string value, found: {:?}", value));
         compressor
           .compress(s.as_bytes())
@@ -72,7 +73,11 @@ fn compress_object(
 
       // Convert key to marker and push onto compressed object.
       let marker = Marker::Field(field_map[key.as_str()] as u32);
-      co.push_data(marker, glob);
+      if t.is_fixed_width() {
+        co.push(Block::FixedWidthData(marker, glob))
+      } else {
+        co.push_data(marker, glob);
+      }
     }
     Ok(())
   } else {

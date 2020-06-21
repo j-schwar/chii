@@ -140,6 +140,19 @@ impl Type {
     }
   }
 
+  /// True if this type has a statically known encoded width.
+  pub fn is_fixed_width(&self) -> bool {
+    // TODO: This is a hack, find a better way to do this.
+    if self.is_integer_type() || self.is_bool_type() {
+      return true;
+    }
+
+    match self {
+      Type::Builtin(n) => n == "uuid",
+      _ => false,
+    }
+  }
+
   /// Returns a compressor for this type.
   ///
   /// Returns `None` if unable to construct the required compressor or if the
