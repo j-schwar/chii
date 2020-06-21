@@ -65,7 +65,7 @@ fn compress_object(
         // TODO: Handle other types of values.
         let s = value
           .as_str()
-          .expect(&format!("expected a string value, found: {:?}", value));
+          .unwrap_or_else(|| panic!("expected a string value, found: {:?}", value));
         compressor
           .compress(s.as_bytes())
           .map_err(|e| CompressionError(e))?

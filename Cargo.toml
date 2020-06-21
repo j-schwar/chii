@@ -5,7 +5,9 @@ authors = ["Jeremy Schwartz <j.schwartz564@icloud.com>"]
 edition = "2018"
 
 [dependencies]
+bit-vec = "0.6.2"
 num-traits = "0.2"
+huffman-compress = "0.6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1.0"

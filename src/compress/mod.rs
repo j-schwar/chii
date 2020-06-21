@@ -4,6 +4,8 @@ use crate::glob::Glob;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
+pub mod huffman;
+
 mod boolean;
 mod enumeration;
 mod numerical;
@@ -75,6 +77,10 @@ impl Error for PassThroughError {}
 
 /// Returns the builtin compressor with a given `name`.
 pub fn builtin(name: &str) -> Option<Box<dyn Compressor>> {
+  if name == "ascii" {
+    return Some(Box::new(huffman::HuffmanCompressor::ascii()));
+  }
+
   if name == "uuid" {
     return Some(Box::new(uuid::UuidCompressor));
   }
