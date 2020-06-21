@@ -3,33 +3,13 @@ use dsc::transcode;
 use serde_json::Value;
 
 fn main() {
-  let schema = Schema::new_record(vec![
-    ("id", Type::new_builtin("uuid")),
-    ("temp_high", Type::new_builtin("u7")),
-    ("temp_low", Type::new_builtin("u7")),
-    ("precipitation_probability", Type::new_builtin("u7")),
-    ("precipitation", Type::new_builtin("u10")),
-    ("pressure", Type::new_builtin("u12")),
-    (
-      "uv",
-      Type::new_enum(
-        EnumMode::Strict,
-        vec!["HIGHEST", "HIGH", "AVERAGE", "LOW", "LOWEST"],
-      ),
-    ),
-    (
-      "weather",
-      Type::new_enum(
-        EnumMode::Strict,
-        vec!["SUNNY", "RAINING", "PARTLY_CLOUDY", "SNOWING"],
-      ),
-    ),
-  ]);
-  let y = serde_yaml::to_string(&schema).unwrap();
-  println!("--- Schema ---\n{}\n", y);
+  let schema_string =
+    std::fs::read_to_string("./samples/schema.yaml").expect("couldn't read schema");
+  let schema =
+    serde_yaml::from_str::<Schema>(&schema_string).expect("failed to parse schema");
 
   let json_string =
-    std::fs::read_to_string("./samples/weather.json").expect("couldn't read file");
+    std::fs::read_to_string("./samples/referral.json").expect("couldn't read file");
   let json = serde_json::from_str::<Value>(&json_string).expect("failed to parse json");
   println!("json {:3} bytes", json.to_string().bytes().len());
 
@@ -37,7 +17,7 @@ fn main() {
   match result {
     Ok(co) => {
       let bytes = co.into_bytes(schema.marker_width());
-      println!("  co {:3} bytes: {:02x?}", bytes.len(), bytes);
+      println!("  co {:3} bytes", bytes.len());
     }
     Err(e) => println!("{:?}", e),
   }

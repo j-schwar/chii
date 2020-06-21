@@ -63,7 +63,8 @@ fn compress_object(
       } else {
         // Assume that the value is a string.
         // TODO: Handle other types of values.
-        let s = value.as_str().expect("expected a string value");
+        let s = value.as_str()
+          .expect(&format!("expected a string value, found: {:?}", value));
         compressor
           .compress(s.as_bytes())
           .map_err(|e| CompressionError(e))?
