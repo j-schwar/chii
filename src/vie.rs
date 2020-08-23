@@ -141,14 +141,14 @@ fn u8_to_u7(bytes: &[u8]) -> Vec<u8> {
     // Place back the new value into the vector.
     vec[i] = value;
     // Cascade, shift the carry of the previous shift into the next byte.
-    for j in i + 1..vec.len() {
+    for byte in vec.iter_mut().skip(i + 1) {
       // Shift this byte to the left by 1 to make room for the carry in.
-      let (shifted, carry_out) = math::shl_with_carry(vec[j], 1);
+      let (shifted, carry_out) = math::shl_with_carry(*byte, 1);
       // Combine the shifted result with the carry in giving us the new byte
       // for this position.
       let shifted = shifted | carry_in;
       // Place the new shifted value back into the vector.
-      vec[j] = shifted;
+      *byte = shifted;
       // If this shift overflowed, then we carry a 1 to the next byte,
       // otherwise we carry a zero.
       carry_in = carry_out;

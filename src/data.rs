@@ -184,6 +184,12 @@ impl CompressedObject {
   }
 }
 
+impl Default for CompressedObject {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Into<BitVec> for CompressedObject {
   fn into(self) -> BitVec<u32> {
     let mut b = BitVec::new();

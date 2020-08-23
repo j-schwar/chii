@@ -3,13 +3,40 @@
 
 use crate::bit::BitVecExt;
 use crate::math;
+use anyhow::{anyhow, bail, Error, Result};
 use bit_vec::BitVec;
-use std::error::Error;
 
-/// The result type returned by the various compressors.
-///
-/// Each compressor is free to use their own error types.
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
+/// Represents a primitive data value to be compressed.
+#[derive(Debug, PartialEq)]
+pub enum Value {
+  Bool(bool),
+  Int(i64),
+  UInt(u64),
+  Float(f64),
+  Str(String),
+}
+
+impl Value {
+  /// A textual description of the variant type; used for error messages.
+  fn typename(&self) -> &'static str {
+    use Value::*;
+
+    match self {
+      Bool(_) => "bool",
+      Int(_) | UInt(_) => "int",
+      Float(_) => "float",
+      Str(_) => "string",
+    }
+  }
+}
+
+fn unexpected_type(value: Value, hint: &'static str) -> Error {
+  anyhow!(
+    "unexpected value type: {}, expected {}",
+    value.typename(),
+    hint
+  )
+}
 
 /// The trait implement by all compressors.
 ///
@@ -18,42 +45,32 @@ pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 /// functionality may not always be desirable. For example, one could wish to
 /// encode enumeration variants in a case-insensitive manor.
 pub trait Compressor {
-  /// Compresses a slice of bytes into a bit vector.
-  ///
-  /// The implementor may assume that all bytes are a part of the value being
-  /// encoded and need not worry about extracting the value from surrounding
-  /// context.
-  fn compress(&self, bytes: &[u8]) -> Result<BitVec>;
+  /// Compresses a value into a sequence of bits.
+  fn compress(&self, value: Value) -> Result<BitVec>;
 
-  /// Decompresses a bit vector into a sequence of bytes.
-  ///
-  /// The implementor may assume that all bits are a part of the value being
-  /// decoded and need not worry about extracting the value from surrounding
-  /// context.
-  fn decompress(&self, bits: BitVec) -> Result<Vec<u8>>;
-}
-
-pub fn lookup(name: &str) -> Option<Box<dyn Compressor>> {
-  match name {
-    "bool" => Some(Box::new(BooleanCompressor)),
-    _ => None,
-  }
+  /// Interprets a sequence of bits as a value.
+  fn decompress(&self, bits: BitVec) -> Result<Value>;
 }
 
 /// The identity compressor doesn't perform any compression and instead passes
-/// along any input data unmodified.
+/// along any input data unmodified. It only accepts string values.
 pub struct IdentityCompressor;
 
 impl Compressor for IdentityCompressor {
-  fn compress(&self, bytes: &[u8]) -> Result<BitVec> {
-    Ok(BitVec::from_bytes(bytes))
+  fn compress(&self, value: Value) -> Result<BitVec> {
+    match value {
+      Value::Str(s) => Ok(BitVec::from_bytes(s.as_bytes())),
+      _ => Err(unexpected_type(value, "string")),
+    }
   }
 
-  fn decompress(&self, bits: BitVec<u32>) -> Result<Vec<u8>> {
+  fn decompress(&self, bits: BitVec) -> Result<Value> {
     if bits.len() % 8 != 0 {
-      return Err("encoded data has invalid length".into());
+      bail!("unable to convert bit sequence to bytes");
     }
-    Ok(bits.to_bytes())
+    let bytes = bits.to_bytes();
+    let s = String::from_utf8(bytes)?;
+    Ok(Value::Str(s))
   }
 }
 
@@ -63,21 +80,19 @@ impl Compressor for IdentityCompressor {
 struct BooleanCompressor;
 
 impl Compressor for BooleanCompressor {
-  fn compress(&self, bytes: &[u8]) -> Result<BitVec> {
-    match bytes {
-      _ if bytes == b"true" => Ok(BitVec::from_elem(1, true)),
-      _ if bytes == b"false" => Ok(BitVec::from_elem(1, false)),
-      _ => Err(r#"unexpected source data, expected "true" or "false""#.into()),
+  fn compress(&self, value: Value) -> Result<BitVec> {
+    match value {
+      Value::Bool(b) => Ok(BitVec::from_elem(1, b)),
+      _ => Err(unexpected_type(value, "bool")),
     }
   }
 
-  fn decompress(&self, bits: BitVec<u32>) -> Result<Vec<u8>> {
+  fn decompress(&self, bits: BitVec<u32>) -> Result<Value> {
     if bits.len() != 1 {
-      return Err("expected a single bit".into());
+      bail!("invalid bit sequence length");
     }
 
-    let result = if bits[0] { "true" } else { "false" }.as_bytes().to_vec();
-    Ok(result)
+    Ok(Value::Bool(bits[0]))
   }
 }
 
@@ -90,45 +105,34 @@ struct EnumCompressor {
 }
 
 impl Compressor for EnumCompressor {
-  fn compress(&self, bytes: &[u8]) -> Result<BitVec> {
+  fn compress(&self, value: Value) -> Result<BitVec> {
+    let s = if let Value::Str(s) = value {
+      s
+    } else {
+      return Err(unexpected_type(value, "string"));
+    };
+
+    let bytes = s.as_bytes();
     let index = self
       .variants
       .iter()
       .position(|v| v.as_bytes() == bytes)
-      .ok_or("unknown enum variant")? as u64;
+      .ok_or_else(|| anyhow!("cannot convert {} to enum variant", s))?
+      as u64;
     let width = math::required_bit_width(self.variants.len());
     let mut bits = BitVec::from_rev_be(index);
     bits.truncate(width);
     Ok(bits)
   }
 
-  fn decompress(&self, mut bits: BitVec<u32>) -> Result<Vec<u8>> {
+  fn decompress(&self, mut bits: BitVec) -> Result<Value> {
     bits.zext_or_trunc(64);
     // This can't fail as we just extended the vector to 64 bits
     let index = bits.to_rev_be::<u64>().unwrap();
     let variant: &String = self
       .variants
       .get(index as usize)
-      .ok_or("cannot match encoded value to variant")?;
-    Ok(variant.as_bytes().to_vec())
-  }
-}
-
-#[cfg(test)]
-mod test {
-  use super::*;
-
-  #[test]
-  fn compress_boolean_true() -> Result<()> {
-    let bits = BooleanCompressor.compress("true".as_bytes())?;
-    assert_eq!(bits, BitVec::from_elem(1, true));
-    Ok(())
-  }
-
-  #[test]
-  fn compress_boolean_false() -> Result<()> {
-    let bits = BooleanCompressor.compress("false".as_bytes())?;
-    assert_eq!(bits, BitVec::from_elem(1, false));
-    Ok(())
+      .ok_or_else(|| anyhow!("cannot match encoded value to variant"))?;
+    Ok(Value::Str(variant.clone()))
   }
 }
