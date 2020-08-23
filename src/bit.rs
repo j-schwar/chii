@@ -12,7 +12,7 @@ pub trait BitVecExt {
   /// # Example
   ///
   /// ```
-  /// # use dcomp::bit::{BitVec, BitVecExt};
+  /// # use chii::bit::{BitVec, BitVecExt};
   /// let b = BitVec::from_rev_be(0x83u16);
   /// assert_eq!(b.to_bytes(), &[0b1100_0001, 0b0000_0000]);
   /// ```

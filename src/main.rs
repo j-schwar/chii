@@ -1,4 +1,4 @@
-use dcomp::schema::*;
+use chii::schema::*;
 
 fn main() {
   let schema = Schema::new(CompositeType::Record(

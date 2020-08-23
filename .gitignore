@@ -1,6 +1,7 @@
 .idea/
 .vscode/
 
+/proptest-regressions
 /samples
 /target
 Cargo.lock
