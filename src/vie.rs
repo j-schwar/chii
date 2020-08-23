@@ -119,8 +119,8 @@ where
 
     // To convert a u7 sequence to a code point we need to OR a 1 bit into the
     // free high bit of each byte except for the last one.
-    for bit in u7_vec.iter_mut() {
-      *bit |= 0x80;
+    for i in 0..u7_vec.len() - 1 {
+      u7_vec[i] |= 0x80;
     }
 
     CodePoint { bytes: u7_vec }
