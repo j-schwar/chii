@@ -1,5 +1,5 @@
 [package]
-name = "dsc"
+name = "dcomp"
 version = "0.1.0"
 authors = ["Jeremy Schwartz <j.schwartz564@icloud.com>"]
 edition = "2018"
@@ -11,7 +11,6 @@ huffman-compress = "0.6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1.0"
-smallvec = "1.4"
 uuid = "0.8"
 
 [dev-dependencies]

@@ -1,6 +1,6 @@
 //! Math utilities.
 
-use crate::core::integer::FixedWidthInteger;
+use crate::int::FixedWidthInteger;
 use num_traits::{PrimInt, Unsigned};
 
 /// Unsigned integer division rounding away from zero.
@@ -40,7 +40,7 @@ pub fn shl_with_carry(lhs: u8, rhs: u8) -> (u8, u8) {
 /// # Example
 ///
 /// ```
-/// # use dsc::core::math::vec_shl;
+/// # use dcomp::math::vec_shl;
 /// let bytes = vec![0x73, 0x01];
 /// let shifted = vec_shl(bytes, 2);
 /// assert_eq!(vec![0xcc, 0x05, 0x00], shifted);

@@ -1,24 +1,37 @@
-use dsc::schema::*;
-use dsc::transcode;
-use serde_json::Value;
+use dcomp::schema::*;
 
 fn main() {
-  let schema_string =
-    std::fs::read_to_string("./samples/schema.yaml").expect("couldn't read schema");
-  let schema =
-    serde_yaml::from_str::<Schema>(&schema_string).expect("failed to parse schema");
+  let schema = Schema::new(CompositeType::Record(
+    vec![
+      ("name".to_string(), Type::Name("ascii".to_string())),
+      ("age".to_string(), Type::Name("0..120".to_string())),
+      (
+        "courses".to_string(),
+        Type::Nested(CompositeType::List(Box::new(Type::Nested(
+          CompositeType::Record(
+            vec![
+              ("name".to_string(), Type::Name("ascii".to_string())),
+              ("credits".to_string(), Type::Name("3..4".to_string())),
+              (
+                "grade".to_string(),
+                Type::Enum {
+                  variants: vec!["A", "B", "C", "D", "E"]
+                    .into_iter()
+                    .map(|x| x.into())
+                    .collect(),
+                },
+              ),
+            ]
+            .into_iter()
+            .collect(),
+          ),
+        )))),
+      ),
+    ]
+    .into_iter()
+    .collect(),
+  ));
 
-  let json_string =
-    std::fs::read_to_string("./samples/referral.json").expect("couldn't read file");
-  let json = serde_json::from_str::<Value>(&json_string).expect("failed to parse json");
-  println!("json {:3} bytes", json.to_string().bytes().len());
-
-  let result = transcode::from_json(&json, &schema);
-  match result {
-    Ok(co) => {
-      let bytes = co.into_bytes(schema.marker_width());
-      println!("  co {:3} bytes", bytes.len());
-    }
-    Err(e) => println!("{:?}", e),
-  }
+  let s = serde_yaml::to_string(&schema).unwrap();
+  println!("{}", s);
 }

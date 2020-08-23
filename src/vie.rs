@@ -5,10 +5,9 @@
 //! > While this encoding theoretically supports unbounded integers, this
 //! > implementation only supports up to 64-bit integer values for simplicity.
 
-use super::integer::{FixedWidthInteger, LittleEndian};
-use super::math;
+use crate::int::{FixedWidthInteger, LittleEndian};
+use crate::math;
 use num_traits::PrimInt;
-use smallvec::SmallVec;
 
 /// A code point in the variable-width integer encoding encodes an integer
 /// value as a string of bytes; not too dissimilar from little endian
@@ -43,7 +42,7 @@ use smallvec::SmallVec;
 /// byte of this code point.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CodePoint {
-  bytes: SmallVec<[u8; 8]>,
+  bytes: Vec<u8>,
 }
 
 impl CodePoint {
@@ -69,11 +68,7 @@ impl CodePoint {
     I: FixedWidthInteger + LittleEndian,
   {
     // Strip prefix bits from code point bytes.
-    let u7_vec = self
-      .bytes
-      .iter()
-      .map(|x| x & 0x7f)
-      .collect::<SmallVec<[u8; 8]>>();
+    let u7_vec = self.bytes.iter().map(|x| x & 0x7f).collect::<Vec<u8>>();
 
     // Convert u7 slice to u8 little endian vector.
     let mut le_bytes = u7_to_u8(u7_vec);
@@ -110,9 +105,7 @@ where
   fn from(x: I) -> Self {
     // Special case for 0 values.
     if x == I::zero() {
-      return CodePoint {
-        bytes: smallvec![0],
-      };
+      return CodePoint { bytes: vec![0] };
     }
 
     let le_bytes = x.le_bytes();
@@ -126,8 +119,8 @@ where
 
     // To convert a u7 sequence to a code point we need to OR a 1 bit into the
     // free high bit of each byte except for the last one.
-    for i in 0..u7_vec.len() - 1 {
-      u7_vec[i] |= 0x80;
+    for bit in u7_vec.iter_mut() {
+      *bit |= 0x80;
     }
 
     CodePoint { bytes: u7_vec }
@@ -137,10 +130,10 @@ where
 /// Converts a slice of bytes into a slice of u7 (unsigned 7-bit integers) by
 /// continually masking off the high bit from each byte and shifting it into
 /// the adjacent byte cascading the result of the shift down the slice.
-fn u8_to_u7(bytes: &[u8]) -> SmallVec<[u8; 8]> {
+fn u8_to_u7(bytes: &[u8]) -> Vec<u8> {
   // TODO: There is probably a more efficient algorithm to do this.
   debug_assert!(!bytes.is_empty());
-  let mut vec: SmallVec<[u8; 8]> = SmallVec::from_slice(bytes);
+  let mut vec: Vec<u8> = bytes.to_vec();
   let mut i = 0;
   while i != vec.len() {
     // Split off the high bit of the `i`th byte.
@@ -186,9 +179,9 @@ fn split_high_bit(x: u8) -> (u8, u8) {
 }
 
 /// Converts a vector of `u7` integers into a vector of `u8` integers.
-fn u7_to_u8(mut u7_vec: SmallVec<[u8; 8]>) -> SmallVec<[u8; 8]> {
+fn u7_to_u8(mut u7_vec: Vec<u8>) -> Vec<u8> {
   debug_assert!(!u7_vec.is_empty());
-  let mut vec = SmallVec::new();
+  let mut vec = Vec::new();
   let mut i = 0;
   let mut borrow_amount = 1;
   loop {
