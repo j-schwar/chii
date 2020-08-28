@@ -6,12 +6,13 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.32"
-bit-vec = "0.6.2"
+bit-vec = { git = "https://github.com/j-schwar/bit-vec", branch = "issue63" }
 num-traits = "0.2"
 huffman-compress = "0.6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1.0"
+structopt = "0.3.17"
 uuid = "0.8"
 
 [dev-dependencies]

@@ -8,6 +8,12 @@ use crate::vie::CodePoint;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct FieldId(u32);
 
+impl FieldId {
+  pub fn new(i: u32) -> Self {
+    FieldId(i)
+  }
+}
+
 /// A section of a [Block] which denotes what field some piece of data belongs
 /// to. Fields are encoded as fixed width integers where the width is determined
 /// by the number of possible fields in a record.
@@ -56,20 +62,18 @@ impl Into<BitVec> for Field {
 /// [Block]: enum.Block.html
 /// [CodePoint]: ../core/struct.CodePoint.html
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Length(CodePoint);
+pub struct Length(usize);
 
-impl<C> From<C> for Length
-where
-  C: Into<CodePoint>,
-{
-  fn from(c: C) -> Self {
-    Length(c.into())
+impl Length {
+  pub fn new(len: usize) -> Self {
+    Length(len)
   }
 }
 
 impl Into<BitVec> for Length {
   fn into(self) -> BitVec<u32> {
-    BitVec::from_bytes(self.0.bytes())
+    let codepoint = CodePoint::from(self.0 as u64);
+    BitVec::from_bytes(codepoint.bytes())
   }
 }
 
@@ -121,6 +125,58 @@ pub enum Block {
 
   /// The terminator block is used to mark the end of record objects.
   Terminator { width: usize },
+}
+
+impl std::fmt::Display for Block {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    use Block::*;
+
+    let fmt_id = |m: &Field| {
+      m.id
+        .map_or_else(|| "None".to_string(), |id| format!("{}", id.0 + 1))
+    };
+
+    match self {
+      RecordHeader(m) => write!(
+        f,
+        "HR  {{ width: {}, id: {} }}",
+        m.width,
+        fmt_id(m)
+      ),
+      ListHeader(m, l) => write!(
+        f,
+        "HL  {{ width: {}, id: {}, length: {} }}",
+        m.width,
+        fmt_id(m),
+        l.0
+      ),
+      FixedWidthField(m, data) => write!(
+        f,
+        "FWF {{ width: {}, id: {}, data: {:?} }}",
+        m.width,
+        fmt_id(m),
+        data
+      ),
+      VariableWidthField(m, l, data) => write!(
+        f,
+        "VWF {{ width: {}, id: {}, length: {}, data: {:?} }}",
+        m.width,
+        fmt_id(m),
+        l.0,
+        data
+      ),
+      FixedWidthElement(data) => {
+        write!(f, "FixedWidthElement {{ data: {:?} }}", data.len())
+      }
+      VariableWidthElement(l, data) => write!(
+        f,
+        "VWE {{ length: {}, data: {:?} }}",
+        l.0,
+        data
+      ),
+      Terminator { width } => write!(f, "TER {{ width: {} }}", width),
+    }
+  }
 }
 
 impl Into<BitVec> for Block {
@@ -194,7 +250,8 @@ impl Into<BitVec> for CompressedObject {
   fn into(self) -> BitVec<u32> {
     let mut b = BitVec::new();
     for block in self.blocks {
-      b.append(&mut block.into());
+      let mut bits: BitVec = block.into();
+      b.append(&mut bits);
     }
     b
   }

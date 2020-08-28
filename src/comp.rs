@@ -5,6 +5,15 @@ use crate::bit::BitVecExt;
 use crate::math;
 use anyhow::{anyhow, bail, Error, Result};
 use bit_vec::BitVec;
+use std::convert::TryFrom;
+
+mod boolean;
+mod enumeration;
+mod identity;
+
+pub use boolean::BooleanCompressor;
+pub use enumeration::EnumCompressor;
+pub use identity::IdentityCompressor;
 
 /// Represents a primitive data value to be compressed.
 #[derive(Debug, PartialEq)]
@@ -30,12 +39,33 @@ impl Value {
   }
 }
 
-fn unexpected_type(value: Value, hint: &'static str) -> Error {
-  anyhow!(
-    "unexpected value type: {}, expected {}",
-    value.typename(),
-    hint
-  )
+impl<'a> TryFrom<&'a serde_json::Value> for Value {
+  type Error = anyhow::Error;
+
+  fn try_from(v: &'a serde_json::Value) -> Result<Self> {
+    match v {
+      _ if v.is_boolean() => Ok(Value::Bool(v.as_bool().unwrap())),
+      _ if v.is_i64() => Ok(Value::Int(v.as_i64().unwrap())),
+      _ if v.is_u64() => Ok(Value::UInt(v.as_u64().unwrap())),
+      _ if v.is_f64() => Ok(Value::Float(v.as_f64().unwrap())),
+      _ if v.is_string() => Ok(Value::Str(v.as_str().unwrap().to_owned())),
+      _ => Err(anyhow!("failed to convert JSON to primitive value")),
+    }
+  }
+}
+
+/// Encoded width is a constant property of a compressor. It defines the size of
+/// the compressed values produced by the compressor in number of bits. It is
+/// used by the encoding system to determine whether to encapsulate the encoded
+/// data in a fixed or variable width block. See [`Block`] for more information
+/// on how data is stored inside a [compressed object].
+///
+/// [`Block`]: crate::data::Block
+/// [compressed object]: crate::data::CompressedObject
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum EncodedWidth {
+  Fixed(usize),
+  Variable,
 }
 
 /// The trait implement by all compressors.
@@ -50,89 +80,21 @@ pub trait Compressor {
 
   /// Interprets a sequence of bits as a value.
   fn decompress(&self, bits: BitVec) -> Result<Value>;
+
+  /// How many bits an encoded value produced by this compressor will take up.
+  ///
+  /// A compressor's encoded width **must** be deterministic as it is used once
+  /// to first encode data and then second time (in a different invocation of
+  /// the program) to decode the data.
+  fn encoded_width(&self) -> EncodedWidth;
 }
 
-/// The identity compressor doesn't perform any compression and instead passes
-/// along any input data unmodified. It only accepts string values.
-pub struct IdentityCompressor;
-
-impl Compressor for IdentityCompressor {
-  fn compress(&self, value: Value) -> Result<BitVec> {
-    match value {
-      Value::Str(s) => Ok(BitVec::from_bytes(s.as_bytes())),
-      _ => Err(unexpected_type(value, "string")),
-    }
-  }
-
-  fn decompress(&self, bits: BitVec) -> Result<Value> {
-    if bits.len() % 8 != 0 {
-      bail!("unable to convert bit sequence to bytes");
-    }
-    let bytes = bits.to_bytes();
-    let s = String::from_utf8(bytes)?;
-    Ok(Value::Str(s))
-  }
-}
-
-/// A compressor for boolean types.
-///
-/// Compresses a boolean's string representation into a single bit.
-struct BooleanCompressor;
-
-impl Compressor for BooleanCompressor {
-  fn compress(&self, value: Value) -> Result<BitVec> {
-    match value {
-      Value::Bool(b) => Ok(BitVec::from_elem(1, b)),
-      _ => Err(unexpected_type(value, "bool")),
-    }
-  }
-
-  fn decompress(&self, bits: BitVec<u32>) -> Result<Value> {
-    if bits.len() != 1 {
-      bail!("invalid bit sequence length");
-    }
-
-    Ok(Value::Bool(bits[0]))
-  }
-}
-
-/// Compressor for enumerations of string variants.
-///
-/// Takes a fixed set of variants and compresses them into unique integer values
-/// represented using the minimum required number of bits.
-struct EnumCompressor {
-  pub variants: Vec<String>,
-}
-
-impl Compressor for EnumCompressor {
-  fn compress(&self, value: Value) -> Result<BitVec> {
-    let s = if let Value::Str(s) = value {
-      s
-    } else {
-      return Err(unexpected_type(value, "string"));
-    };
-
-    let bytes = s.as_bytes();
-    let index = self
-      .variants
-      .iter()
-      .position(|v| v.as_bytes() == bytes)
-      .ok_or_else(|| anyhow!("cannot convert {} to enum variant", s))?
-      as u64;
-    let width = math::required_bit_width(self.variants.len());
-    let mut bits = BitVec::from_rev_be(index);
-    bits.truncate(width);
-    Ok(bits)
-  }
-
-  fn decompress(&self, mut bits: BitVec) -> Result<Value> {
-    bits.zext_or_trunc(64);
-    // This can't fail as we just extended the vector to 64 bits
-    let index = bits.to_rev_be::<u64>().unwrap();
-    let variant: &String = self
-      .variants
-      .get(index as usize)
-      .ok_or_else(|| anyhow!("cannot match encoded value to variant"))?;
-    Ok(Value::Str(variant.clone()))
-  }
+/// Returns an error stating that a given value type cannot be handled by the
+/// compressor.
+fn unexpected_type(value: Value, hint: &str) -> Error {
+  anyhow!(
+    "unexpected value type: {}, expected {}",
+    value.typename(),
+    hint
+  )
 }

@@ -7,3 +7,7 @@ pub mod int;
 pub mod math;
 pub mod schema;
 pub mod vie;
+
+mod encode;
+
+pub use encode::encode;
